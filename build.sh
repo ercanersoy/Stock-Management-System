@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build STOCK.COM with the flat assembler (fasm) on Linux/Unix
+# Build STOCK.COM with the flat assembler (fasm)
 set -e
 
 mkdir -p bin
