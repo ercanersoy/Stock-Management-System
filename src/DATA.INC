@@ -7,8 +7,7 @@ data_file       db      'DATA.DAT', 0
 cfg_file        db      'STOCK.CFG', 0
 
 ; --- Configuration (defaults, overwritten by STOCK.CFG) -------------------
-cfg_company     db      'My Company'
-                rb      L_COMPANY + 1 - ($ - cfg_company)
+cfg_company     db      L_COMPANY + 1 dup 0     ; empty by default
 cfg_lowstock    dw      10
 cfg_confirm     db      1
 cfg_autosave    db      1

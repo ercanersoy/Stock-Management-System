@@ -5,8 +5,6 @@ machines (Intel 8088)** with an **MDA (monochrome) display adapter**,
 written entirely in 8088 assembly language for the
 [flat assembler (FASM)](https://flatassembler.net).
 
-![Search screen](docs/search.png)
-
 ## Features
 
 - Runs on an 8088 with DOS 2.0 or later and about 128 KB of RAM; uses only
@@ -34,8 +32,6 @@ field** saves the form.
 Items whose quantity is at or below the configured low stock level are shown
 in bright text and marked `LOW` in the search list.
 
-![Add screen](docs/add.png)
-
 ## Files
 
 ### `DATA.DAT` - database (plain text)
@@ -45,8 +41,6 @@ One item per line, fields separated by `;`:
 ```
 # STOCK.COM database - one item per line:
 # CODE;NAME;QUANTITY;UNIT;PRICE
-BOLT-M6;Hex bolt M6x30;1250;PCS;0.15
-DRL-10;Drill bit HSS 10 mm;18;PCS;4.90
 ```
 
 | Field    | Rules |
@@ -64,7 +58,7 @@ does not exist, the program starts with an empty database.
 ### `STOCK.CFG` - configuration (plain text)
 
 ```
-COMPANY=My Company
+COMPANY=
 LOWSTOCK=10
 CONFIRM=YES
 AUTOSAVE=YES
@@ -72,15 +66,13 @@ AUTOSAVE=YES
 
 | Key      | Meaning |
 |----------|---------|
-| COMPANY  | Company name shown in the title bar (max 30 characters) |
+| COMPANY  | Company name shown in the title bar (max 30 characters, empty by default) |
 | LOWSTOCK | Items with a quantity at or below this level are flagged `LOW` |
 | CONFIRM  | `YES`/`NO` - ask before deleting an item |
 | AUTOSAVE | `YES`/`NO` - write `DATA.DAT` after every change; with `NO` use F9 or save when exiting |
 
 Lines starting with `;` or `#` are comments. The file is created with default
 values if it is missing.
-
-Sample files are in the [`sample`](sample) directory.
 
 ## Building
 
@@ -100,9 +92,9 @@ Both produce `bin/STOCK.COM`. A prebuilt `bin/STOCK.COM` is included.
 
 ## Running
 
-Copy `STOCK.COM` (and optionally the sample `DATA.DAT` / `STOCK.CFG`) to a
-directory and run `STOCK` from there. The data files are read from and
-written to the current directory. The program requires the display to be in
+Copy `STOCK.COM` to a directory and run `STOCK` from there. The data files
+are read from and written to the current directory; both are created when
+needed. The program requires the display to be in
 monochrome text mode 7 and exits with a message otherwise.
 
 In DOSBox, set `machine=hercules` in the configuration to emulate a
