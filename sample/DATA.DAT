@@ -1,0 +1,16 @@
+# STOCK.COM database - one item per line:
+# CODE;NAME;QUANTITY;UNIT;PRICE
+BOLT-M6;Hex bolt M6x30;1250;PCS;0.15
+BOLT-M8;Hex bolt M8x40;840;PCS;0.22
+CBL-2.5;Copper cable 2.5 mm2;320;M;0.85
+DRL-10;Drill bit HSS 10 mm;18;PCS;4.90
+DRL-6;Drill bit HSS 6 mm;7;PCS;2.75
+GLV-L;Work gloves, size L;45;PAIR;3.20
+HAM-500;Claw hammer 500 g;12;PCS;14.50
+NUT-M6;Hex nut M6;2000;PCS;0.04
+NUT-M8;Hex nut M8;1500;PCS;0.06
+PNT-WH;Wall paint, white 2.5 L;9;CAN;22.00
+SCR-4X40;Wood screw 4x40;5000;PCS;0.03
+SDR-PH2;Screwdriver Phillips PH2;25;PCS;5.40
+TAPE-50;Measuring tape 5 m;4;PCS;8.95
+WSH-M6;Washer M6;3000;PCS;0.02

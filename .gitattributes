@@ -1,0 +1,5 @@
+*.DAT -text
+*.CFG -text
+*.BAT -text
+*.COM binary
+*.png binary
