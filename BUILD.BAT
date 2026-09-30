@@ -1,4 +1,4 @@
 @ECHO OFF
-REM Builds STOCK.COM with the flat assembler (FASM.EXE must be on the PATH)
+REM Builds STOCK.COM with the flat assembler
 IF NOT EXIST BIN\NUL MD BIN
 FASM SRC\STOCK.ASM BIN\STOCK.COM
