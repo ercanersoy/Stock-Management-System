@@ -88,7 +88,12 @@ main_loop:
         jmp     main_loop
 .exit:
         call    confirm_exit
-        jc      main_loop
+        jnc     .leave
+        cmp     al, SEC_EXIT            ; exit cancelled; with a section key
+        je      main_loop               ; go to that section
+        mov     [cur_section], al
+        jmp     main_loop
+.leave:
         call    restore_video           ; original mode, clears the screen
         call    restore_break
         mov     dx, msg_bye

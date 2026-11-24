@@ -34,10 +34,20 @@ The key bar at the bottom shows the keys in the usual DOS style
 
 In forms: **Enter/Tab** moves to the next field, **Shift+Tab** to the previous
 one, **Backspace** erases, **Esc** cancels. Pressing **Enter on the last
-field** saves the form.
+field** saves the form. In the price field a comma may be typed instead of
+the decimal point.
+
+In the sub-menus of F7 and F8 the number keys choose an option and **Esc**
+inside an option returns to the menu. F1-F8 switch to another section, F9
+saves and F10 exits from anywhere, also from a sub-menu.
+
+Y/N questions on the message line (delete, reload, save before exit) must be
+answered with **Y**, **N** or **Esc**; F9 does not save while a question is
+open. A section key (F1-F8) pressed at the "save before exit?" question
+cancels the exit and opens that section.
 
 Items whose quantity is at or below the configured low stock level are shown
-in bright text and marked `LOW` in the search list.
+in bright text and marked `LOW` in the search list and the reports.
 
 ## Files
 
@@ -52,16 +62,27 @@ One item per line, fields separated by `;`:
 
 | Field    | Rules |
 |----------|-------|
-| CODE     | Required, unique, up to 10 characters: `A-Z 0-9 - _ . /` (stored upper case) |
-| NAME     | Required, up to 30 characters |
-| QUANTITY | 0-65535 |
-| UNIT     | Up to 6 characters (e.g. `PCS`, `BOX`, `M`) |
-| PRICE    | Up to 7 digits and 2 decimals; stored as `0.00` format |
+| CODE     | Required, unique, up to 10 characters: `A-Z 0-9 - _ . /` (stored upper case). A longer code makes the line invalid. |
+| NAME     | Required, up to 30 characters (longer names are shortened) |
+| QUANTITY | 0-65535 (leading zeros are allowed) |
+| UNIT     | Up to 6 characters, e.g. `PCS`, `BOX`, `M` (longer units are shortened) |
+| PRICE    | Up to 7 digits and 2 decimals, `.` or `,` as the decimal separator; stored as `0.00` |
 
-Lines starting with `#` and empty lines are ignored. Names may use the
-national characters of the DOS code page (e.g. Turkish letters in CP857). Invalid or duplicate
-lines are skipped when loading and reported on the message line. If the file
-does not exist, the program starts with an empty database.
+Spaces around the fields are removed. Lines starting with `#` and empty lines
+are ignored. Names and units may use the national characters of the DOS code
+page (e.g. Turkish letters in CP857). If the file does not exist, the program
+starts with an empty database.
+
+Invalid and duplicate lines are skipped when loading and counted on the
+message line. They are not lost: the first save after such a load keeps the
+old `DATA.DAT` as `DATA.BAK`, so the skipped lines can be corrected there and
+copied back.
+
+### `DATA.BAK` - backup
+
+Written by F8, option 2 (a copy of the database in memory), or by the first
+save after lines were skipped while loading (the old `DATA.DAT`, see above).
+An older `DATA.BAK` is replaced.
 
 ### `STOCK.CFG` - configuration (plain text)
 
@@ -84,9 +105,9 @@ values if it is missing.
 
 ### Safe saving
 
-Both files are first written to `STOCK.$$$`, which replaces the real file
-only after it has been written completely. A full disk or a write error
-therefore never destroys the previous `DATA.DAT` or `STOCK.CFG`. Ctrl+C and
+`DATA.DAT`, `DATA.BAK` and `STOCK.CFG` are first written to `STOCK.$$$`, which
+replaces the real file only after it has been written completely. A full disk
+or a write error therefore never destroys the previous version. Ctrl+C and
 Ctrl+Break are ignored while the program runs, and on DOS 3.0 and later disk
 errors are reported on the message line instead of the
 "Abort, Retry, Fail?" prompt. If `DATA.DAT` exists but cannot be read, the
@@ -103,11 +124,15 @@ buffer). F8, option 3 shows the result.
 |---------|-----------|------|
 | MDA, Hercules | 7 (`B000:0000`) | monochrome attributes: normal, bright, underline, reverse |
 | EGA / VGA with a monochrome monitor | 7 (`B000:0000`) | as above |
-| CGA, PGC (CGA emulation), EGA, MCGA, VGA | 3 (`B800:0000`) | green on black: green, light green, black on green; input fields are padded with `_` since colour adapters cannot underline |
+| CGA, PGC (CGA emulation), EGA, MCGA, VGA with a colour monitor | 3 (`B800:0000`) | green on black: green, light green, black on green; input fields are padded with `_` since colour adapters cannot underline |
+
+A colour EGA/VGA always gets mode 3, even if mode 7 was active when the
+program was started, so the screen stays green on black.
 
 On a CGA every write to the screen waits for the horizontal retrace, so the
 original IBM CGA shows no "snow". The video mode that was active at start-up
-is restored on exit.
+is restored on exit (an EGA/VGA that was in 43 or 50 line mode returns
+with 25 lines).
 
 ## Building
 
@@ -130,7 +155,8 @@ repository).
 
 Copy `STOCK.COM` to a directory and run `STOCK` from there. The data files
 are read from and written to the current directory; both are created when
-needed.
+needed. Saving needs room for one extra copy of the file being written
+(`STOCK.$$$`).
 
 In DOSBox the adapter is chosen with `machine=` (`hercules`, `cga`, `ega`,
 `vgaonly`); DOSBox-X also offers `mda` and `mcga`.

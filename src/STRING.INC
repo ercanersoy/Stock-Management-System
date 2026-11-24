@@ -325,7 +325,10 @@ normalize_price:
         or      al, al
         jz      .pad
         cmp     al, '.'
+        je      .decimal_point
+        cmp     al, ','                 ; a comma is accepted as well
         jne     .error
+.decimal_point:
         inc     si
 .decimals:
         mov     al, [si]

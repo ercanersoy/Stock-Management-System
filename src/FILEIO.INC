@@ -223,11 +223,23 @@ fcreate_tmp:
 
 ; fcommit_tmp - Close tmp_file and let it replace a file
 ; In:  DX = name of the file to replace
+;      [commit_backup] = 0, or a name the old file is renamed to
 ; Out: CF = 1 if writing or renaming failed (tmp_file is removed)
 fcommit_tmp:
         push    ax dx di
         call    fclose_write
         jc      .discard
+        mov     di, [commit_backup]
+        or      di, di
+        jz      .replace
+        push    dx
+        mov     dx, di                  ; delete the old backup ...
+        mov     ah, 41h
+        int     21h
+        pop     dx
+        mov     ah, 56h                 ; ... and rename the old file
+        int     21h
+.replace:
         mov     ah, 41h                 ; delete the old file (it may not
         int     21h                     ; exist, so errors are ignored)
         mov     di, dx                  ; rename tmp_file -> DX (ES = DS)

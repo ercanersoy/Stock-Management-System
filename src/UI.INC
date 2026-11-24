@@ -222,14 +222,22 @@ draw_text_block:
 ; Out: AX = key code (AL = ASCII, AH = scan code)
 ; --------------------------------------------------------------------------
 get_key:
-        call    draw_title
-        xor     ah, ah
-        int     16h
+        call    read_key
         cmp     ax, KEY_F9
         jne     .done
         call    cmd_save
         jmp     get_key
 .done:
+        ret
+
+; --------------------------------------------------------------------------
+; read_key - Wait for a key without handling F9
+; Out: AX = key code (AL = ASCII, AH = scan code)
+; --------------------------------------------------------------------------
+read_key:
+        call    draw_title
+        xor     ah, ah
+        int     16h
         ret
 
 ; --------------------------------------------------------------------------
@@ -260,7 +268,8 @@ check_section_key:
         ret
 
 ; --------------------------------------------------------------------------
-; ask_yes_no - Ask a question on the message line
+; ask_yes_no - Ask a question on the message line (F9 is not a save here,
+;              the question has to be answered first)
 ; In:  SI = question
 ; Out: AL = 1 yes, 0 no, 2 Esc, 3 section key (AH = section)
 ; --------------------------------------------------------------------------
@@ -272,7 +281,7 @@ ask_yes_no:
         add     dl, cl
         call    set_cursor
 .key:
-        call    get_key
+        call    read_key
         call    check_section_key
         jc      .switch
         cmp     al, KEY_ESC
@@ -339,16 +348,18 @@ menu_choice:
         call    get_key
         call    check_section_key
         jc      .done
-        cmp     al, '1'
-        jb      .other
-        sub     al, '1'
-        cmp     al, cl
-        jae     .other
-        clc                             ; AL = option
-        ret
-.other:
         or      al, al                  ; ignore cursor and other keys
         jz      .key
+        cmp     al, KEY_ESC             ; and Esc (already in the menu)
+        je      .key
+        cmp     al, '1'
+        jb      .wrong
+        sub     al, '1'
+        cmp     al, cl
+        jae     .wrong
+        clc                             ; AL = option
+        ret
+.wrong:
         call    beep
         jmp     .key
 .done:
@@ -585,6 +596,10 @@ field_insert:
         je      .append
         jmp     .digit
 .price:
+        cmp     al, ','                 ; a comma is entered as a point
+        jne     .point
+        mov     al, '.'
+.point:
         cmp     al, '.'
         jne     .digit
         push    di

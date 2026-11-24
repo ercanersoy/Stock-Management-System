@@ -129,7 +129,7 @@ hint_add        db      'Enter/Tab: next field    Shift+Tab: previous field    '
                 db      'Enter on the last field (Unit price) saves the item.   '
                 db      'Esc: clear the form', 0
                 db      'Code: letters, digits and - _ . /    Quantity: 0-65535', 0
-                db      'Price: up to 7 digits and 2 decimals, e.g. 1250.50', 0
+                db      'Price: up to 7 digits and 2 decimals, e.g. 1250.50 or 1250,50', 0
                 db      0
 
 hint_update     db      'Type the code of the item and press Enter to load it.', 0
@@ -237,7 +237,7 @@ hint_display    db      'Supported: MDA, Hercules, CGA, EGA, PGC, MCGA and VGA.'
 msg_loaded      db      'Loaded ', 0
 msg_loaded2     db      ' items from DATA.DAT.', 0
 msg_skipped     db      ' Skipped ', 0
-msg_skipped2    db      ' invalid or duplicate lines!', 0
+msg_skipped2    db      ' bad lines (old file->DATA.BAK)', 0
 msg_new_db      db      'DATA.DAT not found - starting with an empty database.', 0
 msg_saved       db      'Database saved to DATA.DAT (', 0
 msg_saved2      db      ' items).', 0
@@ -342,6 +342,8 @@ num_buf         rb      8
 tmp_buf         rb      LINE_MAX + 1
 tmp_buf2        rb      LINE_MAX + 1
 line_buf        rb      LINE_MAX + 1
+field_buf       rb      LINE_MAX + 1    ; one DATA.DAT field (get_field)
+commit_backup   rw      1               ; see fcommit_tmp
 needle          rb      L_NAME + 1
 row_buf         rb      SCR_COLS
 

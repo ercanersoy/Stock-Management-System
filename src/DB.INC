@@ -179,30 +179,35 @@ clear_rec:
 ; get_field - Extract one ';' separated field from a text line
 ; In:  SI = current position in the line, DI = destination, CX = max length
 ; Out: SI = start of the next field, destination trimmed and terminated
+;      CF = 1 if the trimmed field was longer than CX (it is truncated)
 ; --------------------------------------------------------------------------
 get_field:
         push    ax cx di
-        push    di
+        mov     di, field_buf           ; the whole field first ...
 .next:
         lodsb
         or      al, al
         jz      .end_line
         cmp     al, ';'
         je      .end
-        jcxz    .next                   ; too long: drop the rest
         mov     [di], al
         inc     di
-        dec     cx
         jmp     .next
 .end_line:
         dec     si                      ; stay on the terminator
 .end:
         mov     byte [di], 0
         pop     di
-        xchg    si, di
+        push    si
+        mov     si, field_buf           ; ... then trimmed into DI
         call    str_trim
-        xchg    si, di
-        pop     di cx ax
+        mov     ax, cx                  ; AX = maximum length
+        call    str_len
+        xchg    ax, cx                  ; AX = length, CX = maximum
+        call    str_copy_n
+        cmp     cx, ax                  ; CF = 1 if maximum < length
+        pop     si
+        pop     cx ax
         ret
 
 ; --------------------------------------------------------------------------
@@ -223,20 +228,21 @@ parse_line:
         jz      .skip
         cmp     al, '#'
         je      .skip
-        mov     di, io_rec + R_CODE
-        mov     cx, L_CODE
+        mov     di, io_rec + R_CODE     ; a code that is too long would
+        mov     cx, L_CODE              ; become another code: invalid
         call    get_field
-        mov     di, io_rec + R_NAME
+        jc      .invalid
+        mov     di, io_rec + R_NAME     ; name and unit are shortened
         mov     cx, L_NAME
         call    get_field
-        mov     di, tmp_buf
-        mov     cx, L_QTY
+        mov     di, tmp_buf             ; quantity and price are read in
+        mov     cx, LINE_MAX            ; full and checked when parsed
         call    get_field
         mov     di, io_rec + R_UNIT
         mov     cx, L_UNIT
         call    get_field
         mov     di, tmp_buf2
-        mov     cx, L_PRICE
+        mov     cx, LINE_MAX
         call    get_field
         cmp     byte [io_rec + R_NAME], 0   ; the name is required
         je      .invalid
@@ -393,12 +399,20 @@ load_db:
 ; save_db - Write the database to DATA.DAT
 ; Out: CF = 1 if the file could not be written
 ; --------------------------------------------------------------------------
+; If lines were skipped while loading, the old DATA.DAT still holds them:
+; the first save then keeps it as DATA.BAK instead of deleting it.
 save_db:
         push    dx
+        cmp     word [skipped], 0
+        je      .save
+        mov     word [commit_backup], bak_file
+.save:
         mov     dx, data_file
         call    save_db_to
+        mov     word [commit_backup], 0
         jc      .done
         mov     byte [modified], 0
+        mov     word [skipped], 0
 .done:
         pop     dx
         ret

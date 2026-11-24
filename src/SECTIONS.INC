@@ -1159,7 +1159,8 @@ cmd_save:
 
 ; --------------------------------------------------------------------------
 ; confirm_exit - F10: offer to save unsaved changes
-; Out: CF = 1 if the user cancelled the exit
+; Out: CF = 1 if the user cancelled the exit, AL = section to show
+;      (SEC_EXIT: stay in the current section)
 ; --------------------------------------------------------------------------
 confirm_exit:
         cmp     byte [modified], 0
@@ -1168,6 +1169,8 @@ confirm_exit:
         call    ask_yes_no
         cmp     al, 0
         je      .leave                  ; discard the changes
+        cmp     al, 3
+        je      .switch                 ; section key: go there
         cmp     al, 1
         jne     .cancel
         call    save_db
@@ -1175,6 +1178,11 @@ confirm_exit:
         mov     si, err_save
         call    set_error
 .cancel:
+        mov     al, SEC_EXIT
+        stc
+        ret
+.switch:
+        mov     al, ah
         stc
         ret
 .leave:

@@ -139,12 +139,15 @@ detect_pgc:
         push    ax bx es
         mov     ax, 0C600h
         mov     es, ax
-        mov     al, [es:0]              ; original byte
+        pushf
+        cli                             ; nothing may run while the byte
+        mov     al, [es:0]              ; is changed: original byte
         mov     ah, al
         not     al
         mov     [es:0], al
         mov     bl, [es:0]
         mov     [es:0], ah              ; restore it
+        popf
         cmp     bl, al
         je      .found                  ; CF = 0
         stc
@@ -169,8 +172,9 @@ init_video:
         je      .mono
         cmp     al, ADP_MCGA            ; MCGA has no mode 7
         je      .color
-        cmp     byte [orig_mode], MODE_MONO
-        je      .mono                   ; EGA/VGA with a mono monitor
+        cmp     byte [mono_display], 0  ; EGA/VGA with a mono monitor (a
+        jne     .mono                   ; colour one gets green, even if
+                                        ; mode 7 was active)
 .color:
         mov     word [video_seg], SEG_COLOR
         mov     word [attr_normal], GREEN_BRIGHT * 256 + GREEN_NORMAL
