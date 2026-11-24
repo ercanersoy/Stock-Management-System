@@ -132,8 +132,7 @@ load_config:
 ; --------------------------------------------------------------------------
 save_config:
         push    ax dx si di
-        mov     dx, cfg_file
-        call    fcreate
+        call    fcreate_tmp
         jc      .done
         mov     si, cfg_header
         call    fputs
@@ -162,7 +161,8 @@ save_config:
         call    put_equals
         mov     al, [cfg_autosave]
         call    put_yes_no
-        call    fclose_write
+        mov     dx, cfg_file
+        call    fcommit_tmp
 .done:
         pop     di si dx ax
         ret

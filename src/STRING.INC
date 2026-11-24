@@ -405,3 +405,134 @@ sb_num:
         call    sb_str
         pop     di si
         ret
+
+; --------------------------------------------------------------------------
+; 64 bit unsigned numbers (four words, least significant first) are used
+; for the totals of the stock value report.
+; --------------------------------------------------------------------------
+
+; price_to_cents - Convert a normalised price ("1234567.89") to cents
+; In:  SI = price
+; Out: DX:AX = price in cents (at most 999999999)
+price_to_cents:
+        push    bx cx si
+        xor     ax, ax
+        xor     dx, dx
+.next:
+        mov     bl, [si]
+        inc     si
+        or      bl, bl
+        jz      .done
+        cmp     bl, '.'
+        je      .next
+        sub     bl, '0'
+        xor     bh, bh
+        push    bx
+        mov     bx, 10
+        mov     cx, ax                  ; DX:AX = DX:AX * 10
+        mov     ax, dx
+        mul     bx
+        xchg    ax, cx                  ; CX = high word * 10
+        mul     bx
+        add     dx, cx
+        pop     bx
+        add     ax, bx                  ; ... + digit
+        adc     dx, 0
+        jmp     .next
+.done:
+        pop     si cx bx
+        ret
+
+; q_clear - Set a 64 bit number to zero
+; In:  DI = number
+q_clear:
+        push    ax cx di
+        xor     ax, ax
+        mov     cx, 4
+        rep     stosw
+        pop     di cx ax
+        ret
+
+; q_add_mul - Add DX:AX * CX to a 64 bit number
+; In:  DI = number, DX:AX and CX = factors
+q_add_mul:
+        push    ax bx dx
+        mov     bx, dx                  ; BX = high word of the first factor
+        mul     cx                      ; low word * CX
+        add     [di], ax
+        adc     [di + 2], dx
+        adc     word [di + 4], 0
+        adc     word [di + 6], 0
+        mov     ax, bx                  ; high word * CX
+        mul     cx
+        add     [di + 2], ax
+        adc     [di + 4], dx
+        adc     word [di + 6], 0
+        pop     dx bx ax
+        ret
+
+; q_to_str - Convert a 64 bit number to decimal text
+; In:  SI = number (destroyed: becomes zero), DI = buffer (>= 22 bytes)
+;      AL = number of decimals (0 or 2) - a point is inserted before them
+q_to_str:
+        push    ax bx cx dx di
+        mov     [q_decimals], al
+        mov     bx, 10
+        xor     cx, cx
+.divide:
+        xor     dx, dx                  ; divide all four words by 10
+        mov     ax, [si + 6]
+        div     bx
+        mov     [si + 6], ax
+        mov     ax, [si + 4]
+        div     bx
+        mov     [si + 4], ax
+        mov     ax, [si + 2]
+        div     bx
+        mov     [si + 2], ax
+        mov     ax, [si]
+        div     bx
+        mov     [si], ax
+        push    dx                      ; remainder = next digit
+        inc     cx
+        mov     ax, [si]
+        or      ax, [si + 2]
+        or      ax, [si + 4]
+        or      ax, [si + 6]
+        jnz     .divide
+        cmp     cl, [q_decimals]        ; at least one digit before the
+        jbe     .divide                 ; decimal point
+.store:
+        cmp     cl, [q_decimals]
+        jne     .digit
+        mov     byte [di], '.'
+        inc     di
+.digit:
+        pop     ax
+        add     al, '0'
+        mov     [di], al
+        inc     di
+        loop    .store
+        mov     byte [di], 0
+        pop     di dx cx bx ax
+        ret
+
+; sb_hex - Append the byte in AL as two hexadecimal digits
+sb_hex:
+        push    ax cx
+        mov     ah, al
+        mov     cl, 4
+        shr     al, cl
+        call    .digit
+        mov     al, ah
+        and     al, 0Fh
+        call    .digit
+        pop     cx ax
+        ret
+.digit:
+        add     al, '0'
+        cmp     al, '9'
+        jbe     .append
+        add     al, 'A' - '9' - 1
+.append:
+        jmp     sb_char

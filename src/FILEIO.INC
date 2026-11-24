@@ -7,10 +7,9 @@
 ; --------------------------------------------------------------------------
 ; fopen_read - Open a file for reading
 ; In:  DX = file name
-; Out: CF = 1 if the file could not be opened
+; Out: CF = 1 if the file could not be opened, AX = DOS error code
 ; --------------------------------------------------------------------------
 fopen_read:
-        push    ax
         mov     ax, 3D00h
         int     21h
         jc      .done
@@ -22,7 +21,6 @@ fopen_read:
         mov     [f_error], al
         clc
 .done:
-        pop     ax
         ret
 
 ; --------------------------------------------------------------------------
@@ -72,7 +70,7 @@ fgetc:
         mov     cx, IO_SIZE
         mov     dx, io_buf
         int     21h
-        jc      .set_eof
+        jc      .read_error
         or      ax, ax
         jz      .set_eof
         mov     [io_len], ax
@@ -85,6 +83,8 @@ fgetc:
         je      .set_eof
         clc
         jmp     .done
+.read_error:
+        mov     byte [f_error], 1       ; read error: reported by the caller
 .set_eof:
         mov     byte [f_eof], 1
 .eof:
@@ -204,4 +204,42 @@ fclose_write:
         call    fclose
         cmp     byte [f_error], 1       ; CF = 1 if f_error = 0 ...
         cmc                             ; ... so invert it
+        ret
+
+; --------------------------------------------------------------------------
+; Safe saving: a file is first written as tmp_file and only replaces the
+; real file once it has been written completely. A full disk or a write
+; error therefore never destroys the previous version.
+; --------------------------------------------------------------------------
+
+; fcreate_tmp - Create tmp_file for writing
+; Out: CF = 1 if the file could not be created
+fcreate_tmp:
+        push    dx
+        mov     dx, tmp_file
+        call    fcreate
+        pop     dx
+        ret
+
+; fcommit_tmp - Close tmp_file and let it replace a file
+; In:  DX = name of the file to replace
+; Out: CF = 1 if writing or renaming failed (tmp_file is removed)
+fcommit_tmp:
+        push    ax dx di
+        call    fclose_write
+        jc      .discard
+        mov     ah, 41h                 ; delete the old file (it may not
+        int     21h                     ; exist, so errors are ignored)
+        mov     di, dx                  ; rename tmp_file -> DX (ES = DS)
+        mov     dx, tmp_file
+        mov     ah, 56h
+        int     21h
+        jnc     .done
+.discard:
+        mov     dx, tmp_file
+        mov     ah, 41h
+        int     21h
+        stc
+.done:
+        pop     di dx ax
         ret

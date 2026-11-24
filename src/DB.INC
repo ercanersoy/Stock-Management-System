@@ -238,6 +238,8 @@ parse_line:
         mov     di, tmp_buf2
         mov     cx, L_PRICE
         call    get_field
+        cmp     byte [io_rec + R_NAME], 0   ; the name is required
+        je      .invalid
         mov     si, io_rec + R_CODE     ; the code is required
         cmp     byte [si], 0
         je      .invalid
@@ -315,6 +317,7 @@ check_code:
 ; --------------------------------------------------------------------------
 ; load_db - Load DATA.DAT into memory
 ; Out: message line set to the result of the operation
+;      CF = 1 if DATA.DAT exists but could not be read completely
 ; --------------------------------------------------------------------------
 load_db:
         push    ax cx dx si di
@@ -322,7 +325,13 @@ load_db:
         mov     word [skipped], 0
         mov     dx, data_file
         call    fopen_read
-        jc      .no_file
+        jnc     .line
+        cmp     ax, 2                   ; file not found
+        je      .no_file
+        cmp     ax, 3                   ; path not found
+        je      .no_file
+        stc                             ; exists, but cannot be opened
+        jmp     .done
 .line:
         mov     di, line_buf
         mov     cx, LINE_MAX
@@ -342,6 +351,11 @@ load_db:
         jmp     .line
 .eof:
         call    fclose
+        cmp     byte [f_error], 0
+        je      .read_ok
+        stc                             ; read error: data incomplete
+        jmp     .done
+.read_ok:
         mov     byte [modified], 0
         call    sb_reset
         mov     si, msg_loaded
@@ -360,15 +374,17 @@ load_db:
         call    sb_str
         mov     si, sb_buf
         call    set_error
-        jmp     .done
+        jmp     .ok
 .show:
         mov     si, sb_buf
         call    set_msg
-        jmp     .done
+        jmp     .ok
 .no_file:
         mov     byte [modified], 0
         mov     si, msg_new_db
         call    set_msg
+.ok:
+        clc
 .done:
         pop     di si dx cx ax
         ret
@@ -378,9 +394,23 @@ load_db:
 ; Out: CF = 1 if the file could not be written
 ; --------------------------------------------------------------------------
 save_db:
-        push    ax dx si di
+        push    dx
         mov     dx, data_file
-        call    fcreate
+        call    save_db_to
+        jc      .done
+        mov     byte [modified], 0
+.done:
+        pop     dx
+        ret
+
+; --------------------------------------------------------------------------
+; save_db_to - Write the database to a file (the modified flag is kept)
+; In:  DX = file name
+; Out: CF = 1 if the file could not be written
+; --------------------------------------------------------------------------
+save_db_to:
+        push    ax dx si di
+        call    fcreate_tmp
         jc      .done
         mov     si, db_header
         call    fputs
@@ -413,9 +443,7 @@ save_db:
         inc     ax
         jmp     .next
 .close:
-        call    fclose_write
-        jc      .done
-        mov     byte [modified], 0
+        call    fcommit_tmp
 .done:
         pop     di si dx ax
         ret
