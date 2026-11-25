@@ -69,7 +69,8 @@ One item per line, fields separated by `;`:
 | PRICE    | Up to 7 digits and 2 decimals, `.` or `,` as the decimal separator; stored as `0.00` |
 
 Spaces around the fields are removed. Lines starting with `#` and empty lines
-are ignored. Names and units may use the national characters of the DOS code
+are ignored. A line longer than 127 characters (or one containing a NUL byte)
+is invalid, since its last fields could not be read completely. Names and units may use the national characters of the DOS code
 page (e.g. Turkish letters in CP857). If the file does not exist, the program
 starts with an empty database.
 

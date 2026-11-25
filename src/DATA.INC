@@ -343,6 +343,7 @@ num_buf         rb      8
 tmp_buf         rb      LINE_MAX + 1
 tmp_buf2        rb      LINE_MAX + 1
 line_buf        rb      LINE_MAX + 1
+line_bad        rb      1               ; set by fgets
 field_buf       rb      LINE_MAX + 1    ; one DATA.DAT field (get_field)
 commit_backup   rw      1               ; see fcommit_tmp
 needle          rb      L_NAME + 1

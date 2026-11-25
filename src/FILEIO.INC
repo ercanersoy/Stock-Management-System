@@ -98,10 +98,13 @@ fgetc:
 ; fgets - Read one line (CR/LF removed, overlong lines truncated)
 ; In:  DI = buffer, CX = maximum length without the terminator
 ; Out: CF = 1 at end of file with nothing read
+;      [line_bad] = 1 if the line was truncated or contained a NUL byte
+;      (the buffer then does not hold the complete line)
 ; --------------------------------------------------------------------------
 fgets:
         push    ax bx cx di
         xor     bx, bx                  ; characters seen on this line
+        mov     [line_bad], bl
 .next:
         call    fgetc
         jc      .eof
@@ -110,10 +113,15 @@ fgets:
         cmp     al, 10
         je      .eol
         inc     bx
-        jcxz    .next                   ; buffer full: drop the rest
+        or      al, al                  ; a NUL byte would end the string
+        jz      .bad
+        jcxz    .bad                    ; buffer full: drop the rest
         mov     [di], al
         inc     di
         dec     cx
+        jmp     .next
+.bad:
+        mov     byte [line_bad], 1
         jmp     .next
 .eof:
         mov     byte [di], 0

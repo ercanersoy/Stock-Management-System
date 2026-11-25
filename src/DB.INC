@@ -344,12 +344,15 @@ load_db:
         call    fgets
         jc      .eof
         call    parse_line
-        jnc     .insert
+        jnc     .parsed
         or      al, al
         jz      .line                   ; comment or empty line
+.bad_line:
         inc     word [skipped]
         jmp     .line
-.insert:
+.parsed:
+        cmp     byte [line_bad], 0      ; too long or a NUL byte: fields
+        jne     .bad_line               ; may be cut off, never load them
         mov     si, io_rec
         call    insert_rec
         jnc     .line
