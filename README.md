@@ -101,24 +101,25 @@ AUTOSAVE=YES
 | AUTOSAVE | `YES`/`NO` - write `DATA.DAT` after every change; with `NO` use F9 or save when exiting |
 
 Lines starting with `;` or `#` are comments. The file is created with default
-values if it is missing.
+values if it is missing; a file that exists but cannot be read is left
+unchanged and the defaults are used.
 
 ### Safe saving
 
 `DATA.DAT`, `DATA.BAK` and `STOCK.CFG` are first written to `STOCK.$$$`, which
 replaces the real file only after it has been written completely. A full disk
 or a write error therefore never destroys the previous version. Ctrl+C and
-Ctrl+Break are ignored while the program runs, and on DOS 3.0 and later disk
-errors are reported on the message line instead of the
-"Abort, Retry, Fail?" prompt. If `DATA.DAT` exists but cannot be read, the
+Ctrl+Break are ignored while the program runs, and on DOS 3.1 and later disk
+errors (also those DOS reports when it closes a file) are reported on the
+message line instead of the "Abort, Retry, Fail?" prompt. If `DATA.DAT` exists but cannot be read, the
 program stops without changing anything instead of starting with a
 partial database.
 
 ## Display adapters
 
-The adapter is detected at start-up (VGA/MCGA and EGA BIOS calls, the BIOS
-equipment list, the Hercules vertical sync bit and the PGC communication
-buffer). F8, option 3 shows the result.
+The adapter is detected at start-up (VGA/MCGA and EGA BIOS calls, the
+current video mode, the Hercules vertical sync bit and the PGC communication
+buffer). With two adapters installed the one in use is taken. F8, option 3 shows the result.
 
 | Adapter | Text mode | Look |
 |---------|-----------|------|

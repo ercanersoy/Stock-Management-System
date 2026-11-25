@@ -36,6 +36,7 @@ start:
         int     20h
 .dos_ok:
         mov     [dos_major], al
+        mov     [dos_minor], ah
         mov     ax, 3300h               ; remember the BREAK setting and
         int     21h                     ; turn it off: Ctrl+C/Ctrl+Break
         mov     [break_state], dl       ; must not abort a file write
@@ -45,8 +46,12 @@ start:
         mov     ax, 2523h               ; ignore Ctrl+C / Ctrl+Break
         mov     dx, break_handler       ; (DOS restores both vectors
         int     21h                     ; when the program ends)
-        cmp     byte [dos_major], 3     ; DOS 3+: fail critical errors
-        jb      .memory                 ; instead of "Abort, Retry..."
+        cmp     byte [dos_major], 3     ; DOS 3.10+: fail critical errors
+        ja      .int24                  ; instead of "Abort, Retry..."
+        jb      .memory
+        cmp     byte [dos_minor], 10
+        jb      .memory
+.int24:
         mov     ax, 2524h
         mov     dx, critical_handler
         int     21h
@@ -129,7 +134,7 @@ restore_break:
 break_handler:
         iret
 
-; INT 24h handler (DOS 3+): fail the call, the caller reports the error
+; INT 24h handler (DOS 3.1+): fail the call, the caller reports the error
 critical_handler:
         mov     al, 3
         iret

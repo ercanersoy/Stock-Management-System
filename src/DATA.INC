@@ -308,7 +308,8 @@ mono_display    rb      1               ; 1 = monochrome monitor
 orig_mode       rb      1               ; video mode at start-up
 video_mode      rb      1               ; video mode in use
 snow            rb      1               ; 1 = wait for retrace (CGA)
-dos_major       rb      1               ; DOS major version
+dos_major       rb      1               ; DOS version
+dos_minor       rb      1
 break_state     rb      1               ; BREAK setting at start-up
 list_filter     rb      1               ; FILTER_xxx of collect_matches
 q_decimals      rb      1               ; q_to_str work variable

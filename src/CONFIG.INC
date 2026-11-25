@@ -47,6 +47,8 @@ load_config:
         mov     dx, cfg_file
         call    fopen_read
         jnc     .line
+        cmp     ax, 2                   ; only a missing file is created
+        jne     .done                   ; (an unreadable one is kept)
         call    save_config             ; write the default configuration
         jmp     .done
 .line:

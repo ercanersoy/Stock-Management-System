@@ -76,12 +76,8 @@ detect_adapter:
         mov     ah, 1
         jmp     .found
 .no_ega:
-        int     11h                     ; BIOS equipment list
-        and     al, 30h
-        cmp     al, 30h                 ; initial video mode 80x25 mono
-        je      .mda_card
-        mov     ah, 0Fh                 ; CGA card, unless mode 7 is active
-        int     10h
+        mov     ah, 0Fh                 ; the active card is the one in use:
+        int     10h                     ; mode 7 = MDA/Hercules, else CGA
         and     al, 7Fh
         cmp     al, MODE_MONO
         je      .mda_card

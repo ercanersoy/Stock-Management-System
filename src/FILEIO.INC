@@ -45,6 +45,7 @@ fcreate:
 
 ; --------------------------------------------------------------------------
 ; fclose - Close the current file
+; Out: CF = 1 if DOS reported an error (e.g. writing buffered data failed)
 ; --------------------------------------------------------------------------
 fclose:
         push    ax bx
@@ -202,6 +203,9 @@ fputnl:
 fclose_write:
         call    fflush
         call    fclose
+        jnc     .closed
+        mov     byte [f_error], 1       ; DOS writes its buffers on close
+.closed:
         cmp     byte [f_error], 1       ; CF = 1 if f_error = 0 ...
         cmc                             ; ... so invert it
         ret
@@ -239,6 +243,9 @@ fcommit_tmp:
         pop     dx
         mov     ah, 56h                 ; ... and rename the old file
         int     21h
+        jnc     .replace
+        cmp     ax, 2                   ; no old file: nothing to keep
+        jne     .discard                ; else keep it, do not replace it
 .replace:
         mov     ah, 41h                 ; delete the old file (it may not
         int     21h                     ; exist, so errors are ignored)
