@@ -7,7 +7,10 @@
 ; In:  SI = message
 ; --------------------------------------------------------------------------
 set_msg:
-        mov     byte [msg_attr], ATTR_BRIGHT
+        push    ax
+        mov     al, [attr_bright]
+        mov     [msg_attr], al
+        pop     ax
         jmp     store_msg
 
 ; --------------------------------------------------------------------------
@@ -15,7 +18,10 @@ set_msg:
 ; In:  SI = message
 ; --------------------------------------------------------------------------
 set_error:
-        mov     byte [msg_attr], ATTR_REVERSE
+        push    ax
+        mov     al, [attr_reverse]
+        mov     [msg_attr], al
+        pop     ax
         call    beep
 
 store_msg:
@@ -33,7 +39,8 @@ draw_msg:
         push    ax cx dx si
         mov     dx, ROW_MSG * 256
         mov     cx, SCR_COLS
-        mov     ax, ATTR_NORMAL * 256 + ' '
+        mov     ah, [attr_normal]
+        mov     al, ' '
         call    fill_chars
         cmp     byte [msg_buf], 0
         je      .done
@@ -62,7 +69,8 @@ draw_title:
         push    ax cx dx si
         mov     dx, ROW_TITLE * 256
         mov     cx, SCR_COLS
-        mov     ax, ATTR_REVERSE * 256 + ' '
+        mov     ah, [attr_reverse]
+        mov     al, ' '
         call    fill_chars
         mov     dl, 1
         mov     si, str_title
@@ -86,38 +94,46 @@ draw_title:
         mov     si, sb_buf
         mov     dl, SCR_COLS - 22
         mov     cx, 21
-        mov     ah, ATTR_REVERSE
+        mov     ah, [attr_reverse]
         call    put_field_right
         pop     si dx cx ax
         ret
 
 ; --------------------------------------------------------------------------
-; draw_keys - Draw the function key bar, highlighting the active section
+; draw_keys - Draw the function key bar (F1-F10, eight columns per key),
+;             highlighting the active section
 ; --------------------------------------------------------------------------
 draw_keys:
         push    ax bx cx dx si
         mov     dx, ROW_KEYS * 256
         mov     cx, SCR_COLS
-        mov     ax, ATTR_NORMAL * 256 + ' '
+        mov     ah, [attr_normal]
+        mov     al, ' '
         call    fill_chars
         mov     si, key_table
         xor     bx, bx
 .item:
         push    si
-        mov     si, [si]                ; key name, e.g. "F1"
-        mov     ah, ATTR_NORMAL
-        call    put_str
+        mov     si, [si]                ; key number, e.g. "1" for F1
+        mov     ah, [attr_normal]
+        call    put_str                 ; DL = column after the number
         pop     si
         push    si
-        mov     si, [si + 2]            ; key label, e.g. " Search"
-        mov     ah, ATTR_REVERSE
+        mov     si, [si + 2]            ; key label, e.g. "Search"
+        mov     ah, [attr_reverse]
         cmp     bl, [cur_section]
         jne     .label
-        mov     ah, ATTR_BRIGHT
+        mov     ah, [attr_bright]
 .label:
-        mov     cx, KEY_LABEL_WIDTH
+        mov     cl, bl                  ; the cell ends at (index + 1) * 8
+        inc     cl
+        shl     cl, 1
+        shl     cl, 1
+        shl     cl, 1
+        sub     cl, dl
+        xor     ch, ch
         call    put_field
-        add     dl, KEY_LABEL_WIDTH + 1
+        add     dl, cl
         pop     si
         add     si, 4
         inc     bx
@@ -136,19 +152,21 @@ draw_screen:
         call    draw_title
         mov     cx, ROW_BOX_TOP * 256
         mov     dx, ROW_BOX_BOTTOM * 256 + SCR_COLS - 1
-        mov     ah, ATTR_NORMAL
+        mov     ah, [attr_normal]
         call    draw_box
         mov     bl, [cur_section]           ; section name in the top border
         xor     bh, bh
         shl     bx, 1
         mov     si, [section_names + bx]
         mov     dx, ROW_BOX_TOP * 256 + 2
-        mov     ax, ATTR_NORMAL * 256 + 0B5h
+        mov     ah, [attr_normal]
+        mov     al, 0B5h
         call    put_char
         inc     dl
-        mov     ah, ATTR_BRIGHT
+        mov     ah, [attr_bright]
         call    put_str
-        mov     ax, ATTR_NORMAL * 256 + 0C6h
+        mov     ah, [attr_normal]
+        mov     al, 0C6h
         call    put_char
         call    draw_keys
         call    draw_msg
@@ -163,7 +181,8 @@ draw_separator:
         push    ax bx cx dx
         xor     dl, dl
         mov     cx, SCR_COLS
-        mov     ax, ATTR_NORMAL * 256 + 0C7h
+        mov     ah, [attr_normal]
+        mov     al, 0C7h
         mov     bx, 0B6C4h
         call    hline
         pop     dx cx bx ax
@@ -184,7 +203,7 @@ draw_text_block:
         cmp     byte [si], 1
         jne     .draw
         inc     si
-        mov     ah, ATTR_BRIGHT
+        mov     ah, [attr_bright]
 .draw:
         call    put_str
         pop     dx ax
@@ -203,14 +222,22 @@ draw_text_block:
 ; Out: AX = key code (AL = ASCII, AH = scan code)
 ; --------------------------------------------------------------------------
 get_key:
-        call    draw_title
-        xor     ah, ah
-        int     16h
+        call    read_key
         cmp     ax, KEY_F9
         jne     .done
         call    cmd_save
         jmp     get_key
 .done:
+        ret
+
+; --------------------------------------------------------------------------
+; read_key - Wait for a key without handling F9
+; Out: AX = key code (AL = ASCII, AH = scan code)
+; --------------------------------------------------------------------------
+read_key:
+        call    draw_title
+        xor     ah, ah
+        int     16h
         ret
 
 ; --------------------------------------------------------------------------
@@ -224,7 +251,7 @@ check_section_key:
         jnz     .no
         cmp     ah, KEY_F1 shr 8
         jb      .no
-        cmp     ah, KEY_F6 shr 8
+        cmp     ah, KEY_F8 shr 8
         ja      .f10
         mov     al, ah
         sub     al, KEY_F1 shr 8
@@ -241,7 +268,8 @@ check_section_key:
         ret
 
 ; --------------------------------------------------------------------------
-; ask_yes_no - Ask a question on the message line
+; ask_yes_no - Ask a question on the message line (F9 is not a save here,
+;              the question has to be answered first)
 ; In:  SI = question
 ; Out: AL = 1 yes, 0 no, 2 Esc, 3 section key (AH = section)
 ; --------------------------------------------------------------------------
@@ -253,7 +281,7 @@ ask_yes_no:
         add     dl, cl
         call    set_cursor
 .key:
-        call    get_key
+        call    read_key
         call    check_section_key
         jc      .switch
         cmp     al, KEY_ESC
@@ -283,6 +311,60 @@ ask_yes_no:
         pop     dx cx
         ret
 
+; --------------------------------------------------------------------------
+; is_typed_char - Check whether a key is a character that can be typed
+;                 into a field: ASCII 20h-7Eh or code page 80h-FEh
+;                 (national letters such as the Turkish ones in CP857)
+; In:  AX = key code
+; Out: CF = 1 if it is not a typed character
+; --------------------------------------------------------------------------
+is_typed_char:
+        cmp     al, ' '
+        jb      .no
+        cmp     al, 7Fh
+        jb      .yes
+        je      .no
+        cmp     al, 0FFh
+        je      .no
+        cmp     al, 0E0h                ; E0h with a scan code is a grey
+        jne     .yes                    ; cursor key on some BIOSes
+        or      ah, ah
+        jnz     .no
+.yes:
+        clc
+        ret
+.no:
+        stc
+        ret
+
+; --------------------------------------------------------------------------
+; menu_choice - Wait for a sub-menu choice (keys 1..n)
+; In:  CL = number of options
+; Out: CF = 0: AL = chosen option (0 based)
+;      CF = 1: AL = new section (SEC_xxx) or SEC_EXIT
+; --------------------------------------------------------------------------
+menu_choice:
+.key:
+        call    get_key
+        call    check_section_key
+        jc      .done
+        or      al, al                  ; ignore cursor and other keys
+        jz      .key
+        cmp     al, KEY_ESC             ; and Esc (already in the menu)
+        je      .key
+        cmp     al, '1'
+        jb      .wrong
+        sub     al, '1'
+        cmp     al, cl
+        jae     .wrong
+        clc                             ; AL = option
+        ret
+.wrong:
+        call    beep
+        jmp     .key
+.done:
+        ret
+
 ; ==========================================================================
 ; Form engine
 ;
@@ -295,15 +377,31 @@ ask_yes_no:
 ; In:  BX = field descriptor, AH = attribute
 ; --------------------------------------------------------------------------
 draw_field:
+        push    ax
+        mov     al, ' '
+        jmp     draw_field_pad
+
+; --------------------------------------------------------------------------
+; draw_input - Draw an editable field that is not being edited
+;              (underlined on mono displays, '_' padded on colour displays)
+; In:  BX = field descriptor
+; --------------------------------------------------------------------------
+draw_input:
+        push    ax
+        mov     ah, [attr_field]
+        mov     al, [field_pad]
+
+draw_field_pad:                         ; AL = padding, AH = attribute
         push    cx dx si
         mov     dh, [bx + F_ROW]
         mov     dl, [bx + F_COL]
-        mov     si, [bx + F_BUF]
         mov     cl, [bx + F_MAX]
         xor     ch, ch
         inc     cx                      ; room for the cursor
-        call    put_field
-        pop     si dx cx
+        call    fill_chars
+        mov     si, [bx + F_BUF]
+        call    put_str
+        pop     si dx cx ax
         ret
 
 ; --------------------------------------------------------------------------
@@ -319,10 +417,9 @@ draw_form:
         mov     dh, [bx + F_ROW]
         mov     dl, COL_LABEL
         mov     si, [bx + F_LABEL]
-        mov     ah, ATTR_NORMAL
+        mov     ah, [attr_normal]
         call    put_str
-        mov     ah, ATTR_UNDERLINE
-        call    draw_field
+        call    draw_input
         add     bx, FIELD_SIZE
         loop    .field
         pop     si dx cx bx ax
@@ -341,9 +438,9 @@ show_form:
         mov     dh, [bx + F_ROW]
         mov     dl, COL_LABEL
         mov     si, [bx + F_LABEL]
-        mov     ah, ATTR_NORMAL
+        mov     ah, [attr_normal]
         call    put_str
-        mov     ah, ATTR_BRIGHT
+        mov     ah, [attr_bright]
         call    draw_field
         add     bx, FIELD_SIZE
         loop    .field
@@ -386,7 +483,7 @@ edit_form:
         shl     ax, cl
         lea     bx, [si + 1]
         add     bx, ax                  ; BX = active field
-        mov     ah, ATTR_REVERSE
+        mov     ah, [attr_reverse]
         call    draw_field
 .key:
         call    field_cursor
@@ -403,10 +500,8 @@ edit_form:
         je      .previous
         cmp     al, KEY_BACKSPACE
         je      .backspace
-        cmp     al, ' '
-        jb      .key
-        cmp     al, '~'
-        ja      .key
+        call    is_typed_char
+        jc      .key
         call    field_insert
         jmp     .key
 .backspace:
@@ -434,10 +529,7 @@ edit_form:
 .prev_ok:
         dec     al
 .move:
-        push    ax
-        mov     ah, ATTR_UNDERLINE
-        call    draw_field
-        pop     ax
+        call    draw_input
         mov     [ef_index], al
         jmp     .select
 .escape:
@@ -447,10 +539,7 @@ edit_form:
         mov     ah, al
         mov     al, FORM_SWITCH
 .leave:
-        push    ax
-        mov     ah, ATTR_UNDERLINE
-        call    draw_field
-        pop     ax
+        call    draw_input
         call    hide_cursor
         pop     dx cx bx
         ret
@@ -507,6 +596,10 @@ field_insert:
         je      .append
         jmp     .digit
 .price:
+        cmp     al, ','                 ; a comma is entered as a point
+        jne     .point
+        mov     al, '.'
+.point:
         cmp     al, '.'
         jne     .digit
         push    di
@@ -547,7 +640,7 @@ field_insert:
         mov     [si], al
         mov     byte [si + 1], 0
 .redraw:
-        mov     ah, ATTR_REVERSE
+        mov     ah, [attr_reverse]
         call    draw_field
         jmp     .done
 .reject:
@@ -567,7 +660,7 @@ field_backspace:
         jcxz    .done
         add     si, cx
         mov     byte [si - 1], 0
-        mov     ah, ATTR_REVERSE
+        mov     ah, [attr_reverse]
         call    draw_field
 .done:
         pop     si cx ax

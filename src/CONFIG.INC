@@ -47,6 +47,8 @@ load_config:
         mov     dx, cfg_file
         call    fopen_read
         jnc     .line
+        cmp     ax, 2                   ; only a missing file is created
+        jne     .done                   ; (an unreadable one is kept)
         call    save_config             ; write the default configuration
         jmp     .done
 .line:
@@ -132,8 +134,7 @@ load_config:
 ; --------------------------------------------------------------------------
 save_config:
         push    ax dx si di
-        mov     dx, cfg_file
-        call    fcreate
+        call    fcreate_tmp
         jc      .done
         mov     si, cfg_header
         call    fputs
@@ -162,7 +163,8 @@ save_config:
         call    put_equals
         mov     al, [cfg_autosave]
         call    put_yes_no
-        call    fclose_write
+        mov     dx, cfg_file
+        call    fcommit_tmp
 .done:
         pop     di si dx ax
         ret

@@ -1,7 +1,8 @@
 ; ==========================================================================
 ; STOCK.ASM - Stock Management System
 ;
-; Target  : IBM PC/XT and compatibles, Intel 8088, MDA display, DOS 2.0+
+; Target  : IBM PC/XT and compatibles, Intel 8088, DOS 2.0+
+;           MDA, Hercules, CGA, EGA, PGC, MCGA or VGA display adapter
 ; Build   : fasm STOCK.ASM STOCK.COM
 ; Files   : DATA.DAT  - item database (text)
 ;           STOCK.CFG - configuration (text)
@@ -25,13 +26,36 @@ start:
         xor     al, al
         rep     stosb
 
-        mov     ah, 0Fh                 ; the MDA only supports mode 7
-        int     10h
-        cmp     al, 7
-        je      .video_ok
-        mov     dx, msg_need_mda
-        jmp     fatal
-.video_ok:
+        mov     ah, 30h                 ; DOS version (DOS 1.x returns 0)
+        int     21h
+        cmp     al, 2
+        jae     .dos_ok
+        mov     dx, msg_need_dos
+        mov     ah, 09h
+        int     21h
+        int     20h
+.dos_ok:
+        mov     [dos_major], al
+        mov     [dos_minor], ah
+        mov     ax, 3300h               ; remember the BREAK setting and
+        int     21h                     ; turn it off: Ctrl+C/Ctrl+Break
+        mov     [break_state], dl       ; must not abort a file write
+        mov     ax, 3301h
+        xor     dl, dl
+        int     21h
+        mov     ax, 2523h               ; ignore Ctrl+C / Ctrl+Break
+        mov     dx, break_handler       ; (DOS restores both vectors
+        int     21h                     ; when the program ends)
+        cmp     byte [dos_major], 3     ; DOS 3.10+: fail critical errors
+        ja      .int24                  ; instead of "Abort, Retry..."
+        jb      .memory
+        cmp     byte [dos_minor], 10
+        jb      .memory
+.int24:
+        mov     ax, 2524h
+        mov     dx, critical_handler
+        int     21h
+.memory:
         mov     ah, 4Ah                 ; keep 64 KB for the program ...
         mov     bx, 1000h
         int     21h
@@ -46,11 +70,14 @@ start:
 .memory_ok:
         mov     [rec_seg], ax
 
-        mov     ax, 0007h               ; reset the screen
-        int     10h
+        call    init_video              ; detect the adapter, set the mode
         call    hide_cursor
         call    load_config
         call    load_db
+        jnc     .loaded
+        mov     dx, msg_read_error
+        jmp     fatal_video
+.loaded:
         mov     byte [cur_section], SEC_SEARCH
 
 main_loop:
@@ -66,9 +93,14 @@ main_loop:
         jmp     main_loop
 .exit:
         call    confirm_exit
-        jc      main_loop
-        mov     ax, 0007h               ; clear the screen, restore cursor
-        int     10h
+        jnc     .leave
+        cmp     al, SEC_EXIT            ; exit cancelled; with a section key
+        je      main_loop               ; go to that section
+        mov     [cur_section], al
+        jmp     main_loop
+.leave:
+        call    restore_video           ; original mode, clears the screen
+        call    restore_break
         mov     dx, msg_bye
         mov     ah, 09h
         int     21h
@@ -76,14 +108,36 @@ main_loop:
         int     21h
 
 ; --------------------------------------------------------------------------
-; fatal - Print a DOS message and terminate
+; fatal_video - Restore the video mode, then print a message and terminate
+; fatal       - Print a DOS message and terminate
 ; In:  DX = '$' terminated message
 ; --------------------------------------------------------------------------
+fatal_video:
+        call    restore_video
 fatal:
+        call    restore_break
         mov     ah, 09h
         int     21h
         mov     ax, 4C01h
         int     21h
+
+; restore_break - Restore the BREAK setting found at start-up
+restore_break:
+        push    ax dx
+        mov     ax, 3301h
+        mov     dl, [break_state]
+        int     21h
+        pop     dx ax
+        ret
+
+; INT 23h handler: ignore Ctrl+C and Ctrl+Break
+break_handler:
+        iret
+
+; INT 24h handler (DOS 3.1+): fail the call, the caller reports the error
+critical_handler:
+        mov     al, 3
+        iret
 
 include 'VIDEO.INC'
 include 'STRING.INC'
